@@ -63,6 +63,19 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
+def release_download_total(repo, config):
+    total = 0
+    for page in range(1,21):
+        releases=github(f"/repos/{repository(repo)}/releases?per_page=100&page={page}",config.get("publish_token",""))
+        for release in releases:
+            for asset in release.get("assets",[]):
+                if asset.get("name", "").lower().endswith((".apk", ".exe", ".msi", ".zip", ".appimage", ".dmg")):
+                    total += max(0,int(asset.get("download_count",0)))
+        if len(releases)<100:
+            return total
+    return -1  # Do not show an incomplete total as a real count.
+
+
 def inspect_release(repo, config):
     """Public GitHub reads only. Inspect actual APK; never trust tag/version text."""
     meta = github("/repos/" + repo, config.get("publish_token", ""))
@@ -105,7 +118,8 @@ def inspect_release(repo, config):
         "repository": repo, "channel": "stable", "version": version, "versionCode": int(code),
         "apkUrl": url, "bytes": total, "sha256": digest.hexdigest(), "certificateSha256": certificate,
         "minSdk": minimum, "published": release.get("published_at", ""), "status": "Veröffentlicht",
-        "notes": str(release.get("body") or "")[:20000], "website": release["html_url"], "screenshots": []}
+        "notes": str(release.get("body") or "")[:20000], "website": release["html_url"], "screenshots": [],
+        "downloadEnabled": False, "downloadCount": release_download_total(repo,config)}
 
 
 def parse_apk_metadata(badging, signature):
@@ -156,12 +170,13 @@ class Publisher:
             raise Denied("Ziel muss ein öffentliches Repository deines Kontos sein.")
         return meta
 
-    def change(self, entry=None, delete_id=None):
+    def change(self, entry=None, delete_id=None, download_access=None):
         with self.lock:
             self.check_destination()
             root, sha = self.read()
             apps = root["apps"]
             if entry is not None:
+                entry.setdefault("downloadEnabled",False)
                 if entry.get("visibility") != "public":
                     raise Denied("Private Einträge werden hier nicht veröffentlicht.")
                 old = next((a for a in apps if a["packageName"] == entry["packageName"]), None)
@@ -172,12 +187,19 @@ class Publisher:
                         raise Denied("Gleiche Versionsnummer mit anderer APK abgewiesen.", 409)
                     entry["id"] = old["id"]
                     entry["icon"] = old.get("icon", "hub_icon")
+                    entry["subtitle"] = old.get("subtitle", entry.get("subtitle", ""))
+                    entry["downloadEnabled"] = old.get("downloadEnabled",True)
                     apps = [a for a in apps if a["id"] != old["id"]]
                 apps = apps + [entry]
             elif delete_id is not None:
                 if not any(a["id"] == delete_id for a in apps):
                     raise Denied("App nicht gefunden.", 404)
                 apps = [a for a in apps if a["id"] != delete_id]
+            elif download_access is not None:
+                identifier, enabled = download_access
+                if not isinstance(enabled,bool) or not any(a["id"]==identifier for a in apps):
+                    raise Denied("Ungültige Downloadfreigabe.",400)
+                apps = [dict(a,downloadEnabled=enabled) if a["id"]==identifier else a for a in apps]
             if len(apps) > 200:
                 raise Denied("Maximal 200 Apps erlaubt.", 400)
             root.update(apps=apps, sequence=int(root["sequence"]) + 1, expiresAt=int(time.time()) + 30 * 86400)
@@ -207,11 +229,11 @@ def authorize_action(env, event):
             raise Denied("GitHub-Absender nicht freigeschaltet.")
         inputs = event.get("inputs", {})
         operation = inputs.get("operation")
-        if operation not in ("Hinzufügen / Aktualisieren", "Löschen", "Gültigkeit erneuern"):
+        if operation not in ("Hinzufügen / Aktualisieren", "Löschen", "Gültigkeit erneuern", "Alle Updates prüfen", "Downloads freigeben", "Downloads sperren"):
             raise Denied("Unbekannter Vorgang.", 400)
         return operation, inputs
     if name == "schedule":
-        return "Gültigkeit erneuern", {}
+        return "Alle Updates prüfen", {}
     raise Denied("Dieser Ereignistyp darf keinen Katalog veröffentlichen.")
 
 
@@ -253,6 +275,9 @@ def main():
         if category not in ("Spiele", "Tools", "Editoren"):
             raise Denied("Unbekannte Kategorie.")
         entry["category"] = category
+        if inputs.get("description", "").strip():
+            entry["description"] = inputs["description"].strip()[:12000]
+            entry["descriptionOverride"] = True
         stage = "Signierten Katalog speichern"
         root = publisher.change(entry=entry)
     elif operation == "Löschen":
@@ -260,14 +285,42 @@ def main():
         if not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", identifier):
             raise Denied("Zum Löschen eine gültige App-ID eingeben.")
         root = publisher.change(delete_id=identifier)
+    elif operation in ("Downloads freigeben", "Downloads sperren"):
+        identifier = inputs.get("app_id", "").strip()
+        root = publisher.change(download_access=(identifier,operation=="Downloads freigeben"))
+    elif operation == "Alle Updates prüfen":
+        current = publisher.read()[0]
+        for old in list(current["apps"]):
+            if not old.get("repository") or old.get("platform") != "Android":
+                continue
+            stage = "Öffentliche Updates prüfen"
+            release = github("/repos/" + repository(old["repository"]) + "/releases/latest", config["publish_token"])
+            assets = [a for a in release.get("assets", []) if a["name"].lower().endswith(".apk")]
+            if len(assets) == 1 and (assets[0]["browser_download_url"] != old["apkUrl"] or assets[0]["size"] != old["bytes"]):
+                entry = inspect_release(old["repository"],config)
+                entry["category"] = old["category"]
+                if old.get("descriptionOverride"):
+                    entry["description"] = old["description"]
+                    entry["descriptionOverride"] = True
+                publisher.change(entry=entry)
+            elif not old.get("descriptionOverride"):
+                metadata = github("/repos/" + old["repository"], config["publish_token"])
+                description = str(metadata.get("description") or "")[:12000]
+                if description and description != old.get("description"):
+                    publisher.change(entry=dict(old, description=description))
+            latest = next(a for a in publisher.read()[0]["apps"] if a["id"]==old["id"])
+            count = release_download_total(old["repository"],config)
+            if count != latest.get("downloadCount",-1):
+                publisher.change(entry=dict(latest, downloadCount=count))
+        root = publisher.change()
     else:
         root = publisher.change()
-    summary = "## App-Katalog aktualisiert\n\n| App | ID zum Löschen | Version |\n|---|---|---|\n"
+    summary = "## App-Katalog aktualisiert\n\n| App | ID | Version | Downloads freigegeben |\n|---|---|---|---|\n"
     for app in root["apps"]:
         # Keep release-controlled text from injecting Markdown links/HTML into job summaries.
         name = re.sub(r"[^\w .-]", "", app["name"])[:100]
         version = re.sub(r"[^\w .-]", "", app["version"])[:80]
-        summary += f"| {name} | `{app['id']}` | {version} |\n"
+        summary += f"| {name} | `{app['id']}` | {version} | {'Ja' if app.get('downloadEnabled',True) else 'Nein'} |\n"
     if not root["apps"]:
         summary += "\nDer Katalog ist jetzt leer. Installierte Programme werden nicht deinstalliert.\n"
     with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a", encoding="utf-8") as output:

@@ -5,7 +5,7 @@ on:
       operation:
         description: Was möchtest du machen?
         type: choice
-        options: [Hinzufügen / Aktualisieren, Löschen, Gültigkeit erneuern]
+        options: [Hinzufügen / Aktualisieren, Löschen, Gültigkeit erneuern, Alle Updates prüfen, Downloads freigeben, Downloads sperren]
         required: true
       repository:
         description: GitHub-Link der App (nur für Hinzufügen / Aktualisieren)
@@ -18,8 +18,11 @@ on:
       app_id:
         description: App-ID zum Löschen (tenno oder treasure; neue IDs stehen im letzten Ergebnis)
         type: string
+      description:
+        description: Eigene Beschreibung (leer = von GitHub übernehmen)
+        type: string
   schedule:
-    - cron: '23 4 * * 1'
+    - cron: '17 */6 * * *'
 permissions:
   contents: read
 concurrency:
@@ -40,12 +43,12 @@ jobs:
         with:
           python-version: '3.12'
       - uses: actions/setup-java@v4
-        if: github.event_name == 'workflow_dispatch' && inputs.operation == 'Hinzufügen / Aktualisieren'
+        if: github.event_name == 'schedule' || inputs.operation == 'Hinzufügen / Aktualisieren' || inputs.operation == 'Alle Updates prüfen'
         with:
           distribution: temurin
           java-version: '17'
       - name: APK-Prüfprogramme bereitstellen
-        if: github.event_name == 'workflow_dispatch' && inputs.operation == 'Hinzufügen / Aktualisieren'
+        if: github.event_name == 'schedule' || inputs.operation == 'Hinzufügen / Aktualisieren' || inputs.operation == 'Alle Updates prüfen'
         run: |
           tools="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
           test -x "$tools/aapt"
