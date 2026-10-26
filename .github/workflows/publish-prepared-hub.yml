@@ -1,0 +1,29 @@
+name: Publish verified Hub 0.1.5
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  release:
+    if: github.actor_id == '64050987' && github.repository == 'hahawasistlos1/Jir3n-App-Hub' && github.ref == 'refs/heads/TennoFarm'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify prepared APK and publish existing draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          file=release-staging/Jir3n-App-Hub-0.1.5-dev.apk
+          expected=6928c1bb828a472dc7876c74a320bcb10ae3f6cb66a0d8fffd49795e37035437
+          echo "$expected  $file" | sha256sum --check
+          asset=$(gh api repos/hahawasistlos1/Jir3n-App-Hub/releases/424787552 --jq '.assets[] | select(.name == "Jir3n-App-Hub-0.1.5-dev.apk" and .state == "uploaded" and .digest == "sha256:6928c1bb828a472dc7876c74a320bcb10ae3f6cb66a0d8fffd49795e37035437") | .id')
+          if [ -z "$asset" ]; then
+            gh api --method POST 'https://uploads.github.com/repos/hahawasistlos1/Jir3n-App-Hub/releases/424787552/assets?name=Jir3n-App-Hub-0.1.5-dev.apk' -H 'Content-Type: application/vnd.android.package-archive' --input "$file" > /dev/null
+          fi
+          digest=$(gh api repos/hahawasistlos1/Jir3n-App-Hub/releases/424787552 --jq '.assets[] | select(.name == "Jir3n-App-Hub-0.1.5-dev.apk") | .digest')
+          test "$digest" = "sha256:$expected"
+          gh api --method PATCH repos/hahawasistlos1/Jir3n-App-Hub/releases/424787552 -F draft=false > /dev/null
