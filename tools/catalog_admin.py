@@ -94,22 +94,31 @@ def inspect_release(repo, config):
             capture_output=True, text=True, check=True, timeout=120, encoding="utf-8", errors="replace").stdout
         signature = subprocess.run([config["apksigner"], "verify", "--verbose", "--print-certs", str(apk)],
             capture_output=True, text=True, check=True, timeout=120).stdout
-    package = re.search(r"^package: name='([^']+)' versionCode='(\d+)' versionName='([^']*)'", badging, re.M)
-    certs = re.findall(r"^Signer #\d+ certificate SHA-256 digest: ([0-9a-fA-F]{64})$", signature, re.M)
-    minimum = re.search(r"^sdkVersion:'(\d+)'", badging, re.M)
+    pkg, code, version, minimum, certificate = parse_apk_metadata(badging, signature)
     label = re.search(r"^application-label:'([^']+)'", badging, re.M)
-    if not package or len(certs) != 1 or not minimum or int(package[2]) <= 0:
-        raise Denied("APK-Paket, Version oder Einzelsignatur nicht unterstützt.", 400)
-    pkg, code, version = package.groups()
     if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+", pkg):
         raise Denied("Ungültiger Paketname.", 400)
     return {"id": hashlib.sha256(pkg.encode()).hexdigest()[:24], "name": (label[1] if label else meta["name"])[:100],
         "subtitle": "", "description": str(meta.get("description") or "")[:12000], "category": "Tools",
         "platform": "Android", "visibility": "public", "icon": "hub_icon", "packageName": pkg,
         "repository": repo, "channel": "stable", "version": version, "versionCode": int(code),
-        "apkUrl": url, "bytes": total, "sha256": digest.hexdigest(), "certificateSha256": certs[0].lower(),
-        "minSdk": int(minimum[1]), "published": release.get("published_at", ""), "status": "Veröffentlicht",
+        "apkUrl": url, "bytes": total, "sha256": digest.hexdigest(), "certificateSha256": certificate,
+        "minSdk": minimum, "published": release.get("published_at", ""), "status": "Veröffentlicht",
         "notes": str(release.get("body") or "")[:20000], "website": release["html_url"], "screenshots": []}
+
+
+def parse_apk_metadata(badging, signature):
+    package_line = next((line.strip() for line in badging.splitlines() if line.strip().startswith("package:")), "")
+    attributes = dict(re.findall(r"(\w+)='([^']*)'", package_line))
+    minimum = re.search(r"^(?:sdkVersion|minSdkVersion):\s*'(\d+)'", badging, re.M)
+    signer_count = re.search(r"^Number of signers:\s*(\d+)\s*$", signature, re.M)
+    certs = {match[1].lower() for line in signature.splitlines()
+        if (match := re.match(r"^Signer\b.*?certificate SHA-256 digest:\s*([0-9a-fA-F]{64})\s*$", line.strip()))}
+    if (not attributes.get("name") or not attributes.get("versionCode", "").isdigit()
+            or int(attributes["versionCode"]) <= 0 or not minimum or not signer_count
+            or int(signer_count[1]) != 1 or len(certs) != 1):
+        raise Denied(f"APK-Metadaten nicht unterstützt: Paket={bool(attributes.get('name'))}, API={bool(minimum)}, Einzelsignatur={bool(signer_count and signer_count[1]=='1')}, Zertifikate={len(certs)}.", 400)
+    return attributes["name"], int(attributes["versionCode"]), attributes.get("versionName", ""), int(minimum[1]), next(iter(certs))
 
 
 class Publisher:
