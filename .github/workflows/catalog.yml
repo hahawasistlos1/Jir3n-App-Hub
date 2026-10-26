@@ -1,0 +1,58 @@
+name: Apps verwalten
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Was möchtest du machen?
+        type: choice
+        options: [Hinzufügen / Aktualisieren, Löschen, Gültigkeit erneuern]
+        required: true
+      repository:
+        description: GitHub-Link der App (nur für Hinzufügen / Aktualisieren)
+        type: string
+      category:
+        description: Kategorie
+        type: choice
+        options: [Spiele, Tools, Editoren]
+        default: Tools
+      app_id:
+        description: App-ID zum Löschen (tenno oder treasure; neue IDs stehen im letzten Ergebnis)
+        type: string
+  schedule:
+    - cron: '23 4 * * 1'
+permissions:
+  contents: read
+concurrency:
+  group: owner-catalog
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: github.actor_id == '64050987' && github.repository == 'hahawasistlos1/Jir3n-App-Hub' && github.event.repository.private == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: APK-Prüfprogramme bereitstellen
+        run: |
+          sdkmanager 'build-tools;36.1.0'
+          echo "AAPT=$ANDROID_HOME/build-tools/36.1.0/aapt" >> "$GITHUB_ENV"
+          echo "APKSIGNER=$ANDROID_HOME/build-tools/36.1.0/apksigner" >> "$GITHUB_ENV"
+      - name: Abhängigkeit installieren
+        run: python -m pip install 'cryptography>=44,<47'
+      - name: Eigentümer prüfen und Katalog veröffentlichen
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          CATALOG_PRIVATE_KEY: ${{ secrets.CATALOG_PRIVATE_KEY }}
+        run: python tools/catalog_admin.py
