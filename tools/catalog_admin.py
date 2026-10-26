@@ -225,7 +225,7 @@ def main():
     event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text(encoding="utf-8"))
     operation, inputs = authorize_action(os.environ, event)
     config = {"catalog_repo": CATALOG_REPO, "publish_token": os.environ["GITHUB_TOKEN"],
-        "private_key_pem": os.environ["CATALOG_PRIVATE_KEY"], "aapt": os.environ["AAPT"], "apksigner": os.environ["APKSIGNER"],
+        "private_key_pem": os.environ["CATALOG_PRIVATE_KEY"], "aapt": os.environ.get("AAPT", ""), "apksigner": os.environ.get("APKSIGNER", ""),
         "seed_file": str(Path(__file__).parent.parent / "config/catalog.example.json")}
     publisher = Publisher(config)
     # Validate existing feed before any metadata publication.

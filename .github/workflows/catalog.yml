@@ -40,15 +40,18 @@ jobs:
         with:
           python-version: '3.12'
       - uses: actions/setup-java@v4
+        if: github.event_name == 'workflow_dispatch' && inputs.operation == 'Hinzufügen / Aktualisieren'
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
       - name: APK-Prüfprogramme bereitstellen
+        if: github.event_name == 'workflow_dispatch' && inputs.operation == 'Hinzufügen / Aktualisieren'
         run: |
-          sdkmanager 'build-tools;36.1.0'
-          echo "AAPT=$ANDROID_HOME/build-tools/36.1.0/aapt" >> "$GITHUB_ENV"
-          echo "APKSIGNER=$ANDROID_HOME/build-tools/36.1.0/apksigner" >> "$GITHUB_ENV"
+          tools="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          test -x "$tools/aapt"
+          test -x "$tools/apksigner"
+          echo "AAPT=$tools/aapt" >> "$GITHUB_ENV"
+          echo "APKSIGNER=$tools/apksigner" >> "$GITHUB_ENV"
       - name: Abhängigkeit installieren
         run: python -m pip install 'cryptography>=44,<47'
       - name: Eigentümer prüfen und Katalog veröffentlichen
