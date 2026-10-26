@@ -64,10 +64,10 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 def inspect_release(repo, config):
     """Public GitHub reads only. Inspect actual APK; never trust tag/version text."""
-    meta = github("/repos/" + repo)
+    meta = github("/repos/" + repo, config.get("publish_token", ""))
     if meta.get("private") is not False or meta.get("owner", {}).get("id") != OWNER_ID:
         raise Denied("Hier sind nur öffentliche Repositories deines Kontos erlaubt.")
-    release = github("/repos/" + repo + "/releases/latest")
+    release = github("/repos/" + repo + "/releases/latest", config.get("publish_token", ""))
     assets = [a for a in release.get("assets", []) if a["name"].lower().endswith(".apk")]
     if len(assets) != 1:
         raise Denied("Das neueste Release muss genau eine universelle APK enthalten.", 400)
@@ -222,21 +222,28 @@ def publish_public_key(publisher):
 
 
 def main():
+    global stage
+    stage = "Eigentümerprüfung"
     event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text(encoding="utf-8"))
     operation, inputs = authorize_action(os.environ, event)
     config = {"catalog_repo": CATALOG_REPO, "publish_token": os.environ["GITHUB_TOKEN"],
         "private_key_pem": os.environ["CATALOG_PRIVATE_KEY"], "aapt": os.environ.get("AAPT", ""), "apksigner": os.environ.get("APKSIGNER", ""),
         "seed_file": str(Path(__file__).parent.parent / "config/catalog.example.json")}
+    stage = "Signierschlüssel laden"
     publisher = Publisher(config)
     # Validate existing feed before any metadata publication.
+    stage = "Vorhandenen Katalog prüfen"
     publisher.read()
+    stage = "Öffentlichen Prüfschlüssel veröffentlichen"
     publish_public_key(publisher)
     if operation == "Hinzufügen / Aktualisieren":
+        stage = "GitHub-Release und APK prüfen"
         entry = inspect_release(repository(inputs.get("repository", "")), config)
         category = inputs.get("category", "Tools")
         if category not in ("Spiele", "Tools", "Editoren"):
             raise Denied("Unbekannte Kategorie.")
         entry["category"] = category
+        stage = "Signierten Katalog speichern"
         root = publisher.change(entry=entry)
     elif operation == "Löschen":
         identifier = inputs.get("app_id", "").strip()
@@ -259,13 +266,20 @@ def main():
 
 
 if __name__ == "__main__":
+    stage = "Start"
     try:
         main()
     except Denied as error:
         print(str(error))
         raise SystemExit(1)
-    except Exception:
-        print("GitHub-Veröffentlichung oder APK-Prüfung fehlgeschlagen. Keine Geheimnisse werden protokolliert.")
+    except urllib.error.HTTPError as error:
+        print(f"{stage}: GitHub antwortet mit HTTP {error.code}. Keine Geheimnisse werden protokolliert.")
+        raise SystemExit(1)
+    except subprocess.CalledProcessError as error:
+        print(f"{stage}: APK-Prüfprogramm meldet Fehler {error.returncode}.")
+        raise SystemExit(1)
+    except Exception as error:
+        print(f"{stage}: {type(error).__name__}. Keine Geheimnisse werden protokolliert.")
         raise SystemExit(1)
 
 
