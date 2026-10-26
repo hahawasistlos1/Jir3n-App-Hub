@@ -16,7 +16,7 @@ on:
         options: [Spiele, Tools, Editoren]
         default: Tools
       app_id:
-        description: App-ID zum Löschen (tenno oder treasure; neue IDs stehen im letzten Ergebnis)
+        description: App-ID für Löschen oder Downloadfreigabe (steht im letzten Ergebnis)
         type: string
       description:
         description: Eigene Beschreibung (leer = von GitHub übernehmen)

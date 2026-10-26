@@ -4,6 +4,14 @@ GitHub-Repository: https://github.com/hahawasistlos1/Jir3n-App-Hub
 
 Verwaltung: https://github.com/hahawasistlos1/Jir3n-App-Hub/actions/workflows/catalog.yml
 
+## Persönlicher Adminbereich und Freigabe
+
+Im Hub mit Google anmelden. Nur die serverseitig freigegebene Eigentümer-UID sieht den Adminbereich. „Apps verwalten“ öffnet die zusätzlich durch GitHub abgesicherte Verwaltung.
+
+Neue Apps werden zunächst ohne Downloadbutton veröffentlicht. Im Formular **Downloads freigeben** oder **Downloads sperren** auswählen und die App-ID angeben. Die Freigabe bleibt bei späteren Versionsupdates erhalten. Geräte übernehmen die Änderung beim nächsten Katalogabruf. Bereits installierte Apps bleiben startbar. Öffentliche GitHub-Dateien werden dadurch nicht privat.
+
+Das Formular bietet eine optionale eigene Beschreibung. Leer bedeutet Übernahme von GitHub. Automatische Prüfungen laufen alle sechs Stunden; bekannte Apps erhalten geprüfte neue APK-Metadaten und aktualisierte Downloadzahlen. Die Zahlen sind GitHub-Dateidownloads über die Releases, keine eindeutigen Nutzer.
+
 ## Neue App oder neues Release
 
 1. Signierte APK wie bisher als GitHub-Release hochladen.
@@ -66,7 +74,7 @@ Diese Runner-Laufzeit ist laut GitHub kostenlos. Keine größeren Runner,
 kostenpflichtigen Zusatzdienste, Firebase-Funktionen, Cloud Run oder Blaze.
 Es wurde kein Bezahltarif eingerichtet. APKs bleiben GitHub-Release-Dateien.
 
-Ein wöchentlicher geplanter Lauf erneuert die 30 Tage gültige Katalogsignatur.
+Ein alle sechs Stunden geplanter Lauf erneuert die 30 Tage gültige Katalogsignatur.
 GitHub kann geplante Workflows bei länger inaktiven öffentlichen Repositories
 deaktivieren. Bei einer Warnung unter **Actions** wieder aktivieren oder manuell
 **Gültigkeit erneuern** starten. Ein abgelaufener Feed wird nicht mehr als neue
