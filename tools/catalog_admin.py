@@ -13,6 +13,7 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 from cryptography.hazmat.primitives import hashes, serialization
+from cryptography import x509
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 OWNER_ID = 64050987
 CATALOG_REPO = "hahawasistlos1/Jir3n-App-Hub"
@@ -92,7 +93,7 @@ def inspect_release(repo, config):
             raise Denied("APK ist unvollständig.", 400)
         badging = subprocess.run([config["aapt"], "dump", "badging", str(apk)],
             capture_output=True, text=True, check=True, timeout=120, encoding="utf-8", errors="replace").stdout
-        signature = subprocess.run([config["apksigner"], "verify", "--verbose", "--print-certs", str(apk)],
+        signature = subprocess.run([config["apksigner"], "verify", "--verbose", "--print-certs-pem", str(apk)],
             capture_output=True, text=True, check=True, timeout=120).stdout
     pkg, code, version, minimum, certificate = parse_apk_metadata(badging, signature)
     label = re.search(r"^application-label:'([^']+)'", badging, re.M)
@@ -112,8 +113,8 @@ def parse_apk_metadata(badging, signature):
     attributes = dict(re.findall(r"(\w+)='([^']*)'", package_line))
     minimum = re.search(r"^(?:sdkVersion|minSdkVersion):\s*'(\d+)'", badging, re.M)
     signer_count = re.search(r"^Number of signers:\s*(\d+)\s*$", signature, re.M)
-    certs = {match[1].lower() for line in signature.splitlines()
-        if (match := re.match(r"^Signer\b.*?certificate SHA-256 digest:\s*([0-9a-fA-F]{64})\s*$", line.strip()))}
+    certificates = re.findall(r"-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----", signature, re.S)
+    certs = {x509.load_pem_x509_certificate(pem.encode()).fingerprint(hashes.SHA256()).hex() for pem in certificates}
     if (not attributes.get("name") or not attributes.get("versionCode", "").isdigit()
             or int(attributes["versionCode"]) <= 0 or not minimum or not signer_count
             or int(signer_count[1]) != 1 or len(certs) != 1):
