@@ -22,7 +22,7 @@ on:
         description: Eigene Beschreibung (leer = von GitHub übernehmen)
         type: string
   schedule:
-    - cron: '17 */6 * * *'
+    - cron: '17,47 * * * *'
 permissions:
   contents: read
 concurrency:
