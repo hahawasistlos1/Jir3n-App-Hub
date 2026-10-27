@@ -1,7 +1,11 @@
 name: Apps verwalten
+run-name: App-Verwaltung ${{ inputs.command_id || github.event_name }}
 on:
   workflow_dispatch:
     inputs:
+      command_id:
+        description: Auftragskennung aus dem Launcher (optional)
+        type: string
       operation:
         description: Was möchtest du machen?
         type: choice

@@ -1,4 +1,4 @@
-name: Publish verified Hub 0.1.5
+name: Publish verified Hub 0.1.6
 on: workflow_dispatch
 permissions:
   contents: read
@@ -17,13 +17,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          file=release-staging/Jir3n-App-Hub-0.1.5-dev.apk
-          expected=6928c1bb828a472dc7876c74a320bcb10ae3f6cb66a0d8fffd49795e37035437
+          file=release-staging/Jir3n-App-Hub-0.1.6-dev.apk
+          expected=241ef494f1e8769df6a03e5c388816c4e3ea07f1333b6530a7b221b48af52666
           echo "$expected  $file" | sha256sum --check
-          asset=$(gh api repos/hahawasistlos1/Jir3n-App-Hub/releases/424787552 --jq '.assets[] | select(.name == "Jir3n-App-Hub-0.1.5-dev.apk" and .state == "uploaded" and .digest == "sha256:6928c1bb828a472dc7876c74a320bcb10ae3f6cb66a0d8fffd49795e37035437") | .id')
+          asset=$(gh api repos/hahawasistlos1/Jir3n-App-Hub/releases/425096508 --jq '.assets[] | select(.name == "Jir3n-App-Hub-0.1.6-dev.apk" and .state == "uploaded" and .digest == "sha256:241ef494f1e8769df6a03e5c388816c4e3ea07f1333b6530a7b221b48af52666") | .id')
           if [ -z "$asset" ]; then
-            gh api --method POST 'https://uploads.github.com/repos/hahawasistlos1/Jir3n-App-Hub/releases/424787552/assets?name=Jir3n-App-Hub-0.1.5-dev.apk' -H 'Content-Type: application/vnd.android.package-archive' --input "$file" > /dev/null
+            gh api --method POST 'https://uploads.github.com/repos/hahawasistlos1/Jir3n-App-Hub/releases/425096508/assets?name=Jir3n-App-Hub-0.1.6-dev.apk' -H 'Content-Type: application/vnd.android.package-archive' --input "$file" > /dev/null
           fi
-          digest=$(gh api repos/hahawasistlos1/Jir3n-App-Hub/releases/424787552 --jq '.assets[] | select(.name == "Jir3n-App-Hub-0.1.5-dev.apk") | .digest')
+          digest=$(gh api repos/hahawasistlos1/Jir3n-App-Hub/releases/425096508 --jq '.assets[] | select(.name == "Jir3n-App-Hub-0.1.6-dev.apk") | .digest')
           test "$digest" = "sha256:$expected"
-          gh api --method PATCH repos/hahawasistlos1/Jir3n-App-Hub/releases/424787552 -F draft=false > /dev/null
+          gh api --method PATCH repos/hahawasistlos1/Jir3n-App-Hub/releases/425096508 -F draft=false > /dev/null
