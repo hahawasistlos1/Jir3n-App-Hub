@@ -1,5 +1,7 @@
 # Kostenlose App-Verwaltung
 
+Ab Version 0.1.8 steht der Launcher selbst nicht mehr in den App-Listen. Ein freigegebenes Launcher-Update erscheint oben als „Aktualisieren“ neben „Jir3n App Hub“. Ohne neuere Version bleibt dieser Button unsichtbar. Die automatische Updateprüfung bleibt erhalten.
+
 ## Neue Bedienung ab 0.1.6
 
 Im Launcher **Profil → Adminbereich** öffnen. Nur dein von Firebase freigegebenes Google-Konto sieht diesen Bereich.
