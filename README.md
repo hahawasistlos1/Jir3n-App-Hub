@@ -1,87 +1,41 @@
 # Kostenlose App-Verwaltung
 
-GitHub-Repository: https://github.com/hahawasistlos1/Jir3n-App-Hub
+## Neue Bedienung ab 0.1.6
 
-Verwaltung: https://github.com/hahawasistlos1/Jir3n-App-Hub/actions/workflows/catalog.yml
+Im Launcher **Profil → Adminbereich** öffnen. Nur dein von Firebase freigegebenes Google-Konto sieht diesen Bereich.
 
-## Persönlicher Adminbereich und Freigabe
+1. Einmal **GitHub verbinden** wählen und den angezeigten Code bei GitHub bestätigen.
+2. Den GitHub-Link deiner App einfügen und eine Kategorie auswählen.
+3. **App hinzufügen** drücken und die Prüfung abwarten.
+4. Bei der hinzugefügten App den Schalter **Download-Button** einschalten, wenn andere sie herunterladen dürfen.
 
-Im Hub mit Google anmelden. Nur die serverseitig freigegebene Eigentümer-UID sieht den Adminbereich. „Apps verwalten“ öffnet die zusätzlich durch GitHub abgesicherte Verwaltung.
+Die App muss bereits eine öffentliche GitHub-Veröffentlichung mit genau einer signierten Android-APK haben. Eine Beschreibung kannst du freiwillig eintragen; ein leeres Feld übernimmt die Beschreibung von GitHub. Vorhandene Apps werden anhand ihres Android-Paketnamens erkannt. Neue Apps beginnen mit ausgeschaltetem Download-Button. Eine vorhandene Freigabe bleibt bei Versionsupdates erhalten.
 
-Neue Apps werden zunächst ohne Downloadbutton veröffentlicht. Im Formular **Downloads freigeben** oder **Downloads sperren** auswählen und die App-ID angeben. Die Freigabe bleibt bei späteren Versionsupdates erhalten. Geräte übernehmen die Änderung beim nächsten Katalogabruf. Bereits installierte Apps bleiben startbar. Öffentliche GitHub-Dateien werden dadurch nicht privat.
+**Aus Launcher entfernen** entfernt nur den Katalogeintrag, keine installierten Programme oder GitHub-Dateien. Der nächste Katalogabruf übernimmt die Änderung auf anderen Geräten. Der Schalter versteckt den Download im Launcher; öffentliche GitHub-Dateien bleiben bei GitHub öffentlich.
 
-Das Formular bietet eine optionale eigene Beschreibung. Leer bedeutet Übernahme von GitHub. Automatische Prüfungen laufen alle sechs Stunden; bekannte Apps erhalten geprüfte neue APK-Metadaten und aktualisierte Downloadzahlen. Die Zahlen sind GitHub-Dateidownloads über die Releases, keine eindeutigen Nutzer.
+## Einmalige technische Einrichtung
 
-## Neue App oder neues Release
+Die private GitHub App „Jir3n Hub Verwaltung“ wurde am 27. Oktober 2026 erstellt und am 28. Oktober installiert. Der Eigentümer hat die Auswahl am 28. Oktober auf genau `hahawasistlos1/Jir3n-App-Hub` begrenzt und gespeichert. Benötigt werden **Actions: Read and write** und das obligatorische **Metadata: Read-only**, Device Flow und ablaufende Nutzertokens. Webhooks bleiben aus. Keine Contents-, Secrets-, Administration-, Konto- oder Organisationsrechte. Die neue Freigabe wurde ausdrücklich bestätigt und die gespeicherte Auswahl anschließend im Browser geprüft.
 
-1. Signierte APK wie bisher als GitHub-Release hochladen.
-2. Im Hub **Profil → GitHub-Verwaltung öffnen** wählen und bei GitHub anmelden.
-3. **Run workflow** öffnen und **Hinzufügen / Aktualisieren** auswählen.
-4. Repository-Link und Kategorie eintragen, dann **Run workflow** drücken.
+Nur die öffentliche Client-ID gehört in `config/github-client-id.txt`. Kein Client-Secret, privater GitHub-App-Schlüssel oder Eigentümer-Token gehört in den App-Code. Die mobile Anmeldung verwendet den Device Flow. Ihr Token wird mit Android Keystore verschlüsselt, an das lokale Google-Admin-Konto gebunden und spätestens nach acht Stunden verworfen. Abmelden oder „GitHub trennen“ entfernt die lokale Verbindung.
 
-Der Ablauf lädt die APK, prüft ihre Signatur und liest Name, Paket, Version und
-Mindest-Android aus. SHA-256 und Dateigröße werden selbst berechnet. Das Release
-muss genau eine APK enthalten. Nur öffentliche Repositories deines Kontos sind
-erlaubt. Windows-Programme und private Apps werden so noch nicht veröffentlicht.
+Die App prüft die feste GitHub-Konto-ID 64050987. Öffentliche App-Quellen werden vor dem Senden anonym geprüft; fremde oder private Projekte werden nicht übernommen. Windows-Programme und geschützte private Apps werden mit diesem Ablauf noch nicht hinzugefügt.
 
-Bestehende Apps werden anhand ihres Paketnamens erkannt. Ihre ID und ihr Icon
-bleiben erhalten. Neue Apps erhalten zunächst das Hub-Standardsymbol. Wechselnde
-App-Zertifikate, Downgrades und ausgetauschte APKs bei gleichem VersionCode werden
-abgewiesen. Die Signaturprüfung ist kein Virenscan oder inhaltlicher App-Test.
+Der vorhandene GitHub-Ablauf prüft den Eigentümer zusätzlich unabhängig von der mobilen Oberfläche und signiert den Katalog serverseitig. Nur er hat Zugriff auf `CATALOG_PRIVATE_KEY`. Der private Katalogschlüssel bleibt in GitHub Actions und lokal unter `owner-private`, niemals in der APK. Weitere Schreibberechtigte am Hub könnten die Schutzregeln ändern und dürfen daher nicht hinzugefügt werden.
 
-## App entfernen
+## Updates und Downloads
 
-Im selben Formular **Löschen** auswählen und die App-ID angeben. Aktuell:
+Unter **Profil → Update-Einstellungen** gibt es jetzt den Schalter **Updates automatisch herunterladen**. Beim Einschalten werden auch bereits bekannte neue Versionen eingereiht. Beim Öffnen des Launchers und bei Hintergrundprüfungen werden dieselben Download-Regeln verwendet. Nur installierte Android-Apps mit neuerer Version und freigegebenem Download werden automatisch heruntergeladen. Neue, noch nicht installierte Apps starten nicht von selbst.
 
-| App | ID |
-|---|---|
-| TennoFreunde | tenno |
-| TreasureRunner | treasure |
+Neue Installationen verwenden automatischen Download über WLAN. Bereits gespeicherte manuelle Einstellungen bleiben erhalten und können mit dem Schalter geändert werden. Android kann zum Installieren weiterhin eine Bestätigung verlangen. WLAN-Bindung und die Android-Hintergrundplanung können den tatsächlichen Start verzögern.
 
-Neue IDs stehen im Ergebnis des letzten Ablaufs. Löschen entfernt die App aus
-dem Hub-Katalog, auch wenn es die letzte App ist. Es löscht weder GitHub-Dateien
-noch installierte Programme. Der nächste Katalogabruf übernimmt die Änderung.
+Der öffentliche Katalog prüft bekannte Apps zweimal pro Stunde. GitHub-Downloadzahlen zählen Dateidownloads über die Releases, keine eindeutigen Nutzer und nicht ausschließlich Downloads über den Launcher.
 
-## Nur der Eigentümer
+## Kostenloser Betrieb
 
-Der Ablauf akzeptiert ausschließlich GitHubs feste Konto-ID **64050987**, auf dem
-Default-Branch des festen Repositories. Die Prüfung erfolgt sowohl im Workflow
-als auch im Python-Programm. Andere Nutzer, Forks und Pull Requests erhalten
-keinen Zugriff auf die Veröffentlichung. Ein lokaler Profilname erteilt keine
-Rechte. Das öffentliche APK enthält weder GitHub-Zugangsdaten noch den privaten
-Katalogschlüssel. Das öffentliche Repository darf keine weiteren Personen mit
-Schreib-/Administratorrechten erhalten: Solche Rechte würden auch das Ändern
-der Schutzregeln und Workflows ermöglichen.
+Öffentliche GitHub-Releases, das öffentliche Katalogprojekt und Standard-Linux-Actions werden verwendet. Firebase bleibt im kostenlosen Spark-Tarif für die Google-Anmeldung und die kleine Admin-Freigabe. Kein Blaze-Tarif, kostenpflichtiger Server oder privater Download-Proxy ist eingerichtet. Nutzungsgrenzen der kostenlosen Dienste gelten weiterhin.
 
-Die Prüfsignatur wird serverseitig in GitHub Actions erstellt. Dafür muss einmalig
-der erzeugte private Katalogschlüssel im Repository unter **Settings → Secrets
-and variables → Actions → New repository secret** als `CATALOG_PRIVATE_KEY`
-gespeichert werden. Der Schlüssel liegt lokal im ausgeschlossenen Ordner
-`owner-private/catalog-signing.pem`. Niemals ins Repository, in Issues, in einen
-öffentlichen Upload oder hier in den Chat kopieren. Eine sichere lokale Kopie
-behalten; ein Schlüsselwechsel erfordert eine neue Vertrauenskonfiguration im Hub.
+Die alte GitHub-Verwaltung bleibt als technische Ausweichmöglichkeit unter https://github.com/hahawasistlos1/Jir3n-App-Hub/actions/workflows/catalog.yml erreichbar.
 
-Ein initialer Katalog kann lokal signiert werden; ohne eingerichtetes Actions-
-Secret funktionieren spätere Änderungen und Erneuerungen nicht. Der Hub bekommt
-die feste GitHub-Feedadresse und den passenden öffentlichen Schlüssel ab Werk.
-Bestehende bewusst gesetzte andere Releasequellen werden nicht überschrieben.
 
-## Kosten und Betrieb
-
-Der Ablauf läuft ausschließlich im **öffentlichen** Repository auf einem
-Standard-Ubuntu-Runner, ohne hochgeladene Workflow-Artefakte und ohne Cache.
-Diese Runner-Laufzeit ist laut GitHub kostenlos. Keine größeren Runner,
-kostenpflichtigen Zusatzdienste, Firebase-Funktionen, Cloud Run oder Blaze.
-Es wurde kein Bezahltarif eingerichtet. APKs bleiben GitHub-Release-Dateien.
-
-Ein alle sechs Stunden geplanter Lauf erneuert die 30 Tage gültige Katalogsignatur.
-GitHub kann geplante Workflows bei länger inaktiven öffentlichen Repositories
-deaktivieren. Bei einer Warnung unter **Actions** wieder aktivieren oder manuell
-**Gültigkeit erneuern** starten. Ein abgelaufener Feed wird nicht mehr als neue
-vertrauenswürdige Version übernommen; der lokale Katalog bleibt erhalten.
-
-Die Android-Build-CI ist separat und wird nicht für diese reine Katalogverwaltung
-benötigt. Im Verwaltungs-Repository liegt ausschließlich der kleine Katalog-
-Workflow mit seinen Hilfsdateien; keine privaten Projektnamen oder APK-Testdateien.
-
-Quelle: https://docs.github.com/en/billing/concepts/product-billing/github-actions
+Ab 0.1.7 werden manuelle Downloads unabhängig von der WLAN-Einstellung zugelassen. Die WLAN-Beschränkung betrifft automatische Downloads. Eine noch gültige GitHub-Code-Anmeldung kann nach einem App-/Prozesswechsel fortgesetzt werden; Abmelden und Abbrechen löschen diesen geschützten Zwischenstand.
