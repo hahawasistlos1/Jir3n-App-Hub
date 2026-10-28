@@ -27,7 +27,7 @@ Der vorhandene GitHub-Ablauf prüft den Eigentümer zusätzlich unabhängig von 
 
 Unter **Profil → Update-Einstellungen** gibt es jetzt den Schalter **Updates automatisch herunterladen**. Beim Einschalten werden auch bereits bekannte neue Versionen eingereiht. Beim Öffnen des Launchers und bei Hintergrundprüfungen werden dieselben Download-Regeln verwendet. Nur installierte Android-Apps mit neuerer Version und freigegebenem Download werden automatisch heruntergeladen. Neue, noch nicht installierte Apps starten nicht von selbst.
 
-Neue Installationen verwenden automatischen Download über WLAN. Bereits gespeicherte manuelle Einstellungen bleiben erhalten und können mit dem Schalter geändert werden. Android kann zum Installieren weiterhin eine Bestätigung verlangen. WLAN-Bindung und die Android-Hintergrundplanung können den tatsächlichen Start verzögern.
+Ab 0.1.7 erlauben neue Einstellungen automatische Downloads auch über mobile Daten. Die WLAN-Beschränkung kann freiwillig eingeschaltet werden. Bereits gespeicherte manuelle Einstellungen bleiben erhalten und können mit dem Schalter geändert werden. Android kann zum Installieren weiterhin eine Bestätigung verlangen. WLAN-Bindung und die Android-Hintergrundplanung können den tatsächlichen Start verzögern.
 
 Der öffentliche Katalog prüft bekannte Apps zweimal pro Stunde. GitHub-Downloadzahlen zählen Dateidownloads über die Releases, keine eindeutigen Nutzer und nicht ausschließlich Downloads über den Launcher.
 
