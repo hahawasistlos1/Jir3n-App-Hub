@@ -17,7 +17,7 @@ on:
       category:
         description: Kategorie
         type: choice
-        options: [Spiele, Tools, Editoren]
+        options: [Spiele, Tools, Editoren, Windows]
         default: Tools
       app_id:
         description: App-ID für Löschen oder Downloadfreigabe (steht im letzten Ergebnis)
@@ -62,7 +62,7 @@ jobs:
       - name: Abhängigkeit installieren
         run: python -m pip install 'cryptography>=44,<47' 'Pillow==12.3.0'
       - name: Katalog und Icon-Import prüfen
-        run: python -m unittest tools.test_catalog_admin tools.test_apk_icon
+        run: python -m unittest tools.test_catalog_admin tools.test_apk_icon tools.test_windows_archive
       - name: Eigentümer prüfen und Katalog veröffentlichen
         env:
           GITHUB_TOKEN: ${{ github.token }}

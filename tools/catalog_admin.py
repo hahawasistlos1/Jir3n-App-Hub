@@ -15,10 +15,13 @@ from pathlib import Path
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography import x509
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
+import zipfile
 try:
     from tools.apk_icon import extract_icon, icon_path
+    from tools.windows_archive import validate_windows_archive
 except ModuleNotFoundError:
     from apk_icon import extract_icon, icon_path
+    from windows_archive import validate_windows_archive
 OWNER_ID = 64050987
 CATALOG_REPO = "hahawasistlos1/Jir3n-App-Hub"
 MAX_APK = 512 * 1024 * 1024
@@ -67,13 +70,13 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
-def release_download_total(repo, config):
+def release_download_total(repo, config, extensions=(".apk", ".exe", ".msi", ".zip", ".appimage", ".dmg")):
     total = 0
     for page in range(1,21):
         releases=github(f"/repos/{repository(repo)}/releases?per_page=100&page={page}",config.get("publish_token",""))
         for release in releases:
             for asset in release.get("assets",[]):
-                if asset.get("name", "").lower().endswith((".apk", ".exe", ".msi", ".zip", ".appimage", ".dmg")):
+                if asset.get("name", "").lower().endswith(extensions):
                     total += max(0,int(asset.get("download_count",0)))
         if len(releases)<100:
             return total
@@ -127,7 +130,43 @@ def inspect_release(repo, config):
         "apkUrl": url, "bytes": total, "sha256": digest.hexdigest(), "certificateSha256": certificate,
         "minSdk": minimum, "published": release.get("published_at", ""), "status": "Veröffentlicht",
         "notes": str(release.get("body") or "")[:20000], "website": release["html_url"], "screenshots": [],
-        "downloadEnabled": False, "downloadCount": release_download_total(repo,config), "iconChecked": True}
+        "downloadEnabled": False, "downloadCount": release_download_total(repo,config,(".apk",)), "iconChecked": True}
+
+
+def inspect_windows_release(repo, config):
+    meta=github('/repos/'+repo,config.get('publish_token',''))
+    if meta.get('private') is not False or meta.get('owner',{}).get('id')!=OWNER_ID:
+        raise Denied('Hier sind nur öffentliche Projekte deines Kontos erlaubt.')
+    release=github('/repos/'+repo+'/releases/latest',config.get('publish_token',''))
+    assets=[a for a in release.get('assets',[]) if a['name'].lower().endswith('.zip')]
+    if len(assets)!=1:
+        raise Denied('Das neueste Release muss genau eine Windows-ZIP enthalten.',400)
+    asset=assets[0]; url=asset['browser_download_url']
+    require_asset_url(url)
+    if not 0<asset['size']<=MAX_APK or int(asset['id'])<=0:
+        raise Denied('Windows-ZIP fehlt oder ist größer als 512 MB.',400)
+    digest=hashlib.sha256(); total=0
+    with tempfile.TemporaryDirectory() as directory:
+        path=Path(directory)/'windows.zip'
+        req=urllib.request.Request(url,headers={'User-Agent':'Jir3nHub-OwnerAdmin'})
+        with urllib.request.build_opener(SafeRedirect()).open(req,timeout=60) as response,path.open('wb') as output:
+            while chunk:=response.read(65536):
+                total+=len(chunk)
+                if total>asset['size'] or total>MAX_APK: raise Denied('ZIP-Größe stimmt nicht.',400)
+                digest.update(chunk); output.write(chunk)
+        if total!=asset['size']: raise Denied('ZIP ist unvollständig.',400)
+        try: validate_windows_archive(path)
+        except (ValueError,zipfile.BadZipFile) as error: raise Denied(str(error),400) from error
+    name=Path(asset['name']).stem.replace('_',' ').replace('-',' ')
+    return {'id':hashlib.sha256(('windows:'+repo).encode()).hexdigest()[:24],
+        'name':name[:100],'subtitle':'Windows-Tool · ZIP','description':str(meta.get('description') or '')[:12000],
+        'category':'Windows','platform':'Windows','visibility':'public','icon':'hub_icon','packageName':'',
+        'repository':repo,'channel':'stable','version':str(release.get('tag_name','')).removeprefix('v'),
+        'versionCode':int(asset['id']),'apkUrl':'','downloadUrl':url,'assetName':asset['name'],
+        'bytes':total,'sha256':digest.hexdigest(),'certificateSha256':'','minSdk':0,
+        'published':release.get('published_at',''),'status':'Veröffentlicht','notes':str(release.get('body') or '')[:20000],
+        'website':release['html_url'],'screenshots':[],'downloadEnabled':False,
+        'downloadCount':release_download_total(repo,config,('.zip',)),'releaseId':release['id']}
 
 
 def publish_icon(data, config):
@@ -210,8 +249,14 @@ class Publisher:
                 entry.setdefault("downloadEnabled",False)
                 if entry.get("visibility") != "public":
                     raise Denied("Private Einträge werden hier nicht veröffentlicht.")
-                old = next((a for a in apps if a["packageName"] == entry["packageName"]), None)
+                windows=entry.get('platform')=='Windows'
+                old=next((a for a in apps if (a['id']==entry['id'] if windows else a.get('platform')=='Android' and a.get('packageName')==entry['packageName'])),None)
+                if windows and entry.get('icon','hub_icon')=='hub_icon':
+                    sibling=next((a for a in apps if a.get('platform')=='Android' and a.get('repository')==entry['repository']),None)
+                    if sibling: entry['icon']=sibling.get('icon','hub_icon')
                 if old:
+                    if windows and entry.get('releaseId',0)<old.get('releaseId',0):
+                        raise Denied('Ältere Windows-Veröffentlichung abgewiesen.',409)
                     if old["certificateSha256"] != entry["certificateSha256"] or entry["versionCode"] < old["versionCode"]:
                         raise Denied("Zertifikatwechsel oder Versionsrückschritt abgewiesen.", 409)
                     if entry["versionCode"] == old["versionCode"] and entry["sha256"] != old["sha256"]:
@@ -302,10 +347,10 @@ def main():
     publish_public_key(publisher)
     if operation == "Hinzufügen / Aktualisieren":
         stage = "GitHub-Release und APK prüfen"
-        entry = inspect_release(repository(inputs.get("repository", "")), config)
         category = inputs.get("category", "Tools")
-        if category not in ("Spiele", "Tools", "Editoren"):
+        if category not in ("Spiele", "Tools", "Editoren", "Windows"):
             raise Denied("Unbekannte Kategorie.")
+        entry=(inspect_windows_release if category=='Windows' else inspect_release)(repository(inputs.get('repository','')),config)
         entry["category"] = category
         if inputs.get("description", "").strip():
             entry["description"] = inputs["description"].strip()[:12000]
@@ -323,13 +368,16 @@ def main():
     elif operation == "Alle Updates prüfen":
         current = publisher.read()[0]
         for old in list(current["apps"]):
-            if not old.get("repository") or old.get("platform") != "Android":
+            if not old.get("repository") or old.get("platform") not in ("Android","Windows"):
                 continue
             stage = "Öffentliche Updates prüfen"
             release = github("/repos/" + repository(old["repository"]) + "/releases/latest", config["publish_token"])
-            assets = [a for a in release.get("assets", []) if a["name"].lower().endswith(".apk")]
-            if len(assets) == 1 and (assets[0]["browser_download_url"] != old["apkUrl"] or assets[0]["size"] != old["bytes"] or (old.get("icon")=="hub_icon" and not old.get("iconChecked"))):
-                entry = inspect_release(old["repository"],config)
+            windows=old['platform']=='Windows'
+            suffix='.zip' if windows else '.apk'
+            assets = [a for a in release.get("assets", []) if a["name"].lower().endswith(suffix)]
+            current_url=old.get('downloadUrl','') if windows else old['apkUrl']
+            if len(assets) == 1 and (assets[0]["browser_download_url"] != current_url or assets[0]["size"] != old["bytes"] or (windows and int(assets[0]['id'])!=old['versionCode']) or (not windows and old.get("icon")=="hub_icon" and not old.get("iconChecked"))):
+                entry = (inspect_windows_release if windows else inspect_release)(old["repository"],config)
                 entry["category"] = old["category"]
                 entry["iconChecked"] = True
                 if old.get("descriptionOverride"):
@@ -342,7 +390,7 @@ def main():
                 if description and description != old.get("description"):
                     publisher.change(entry=dict(old, description=description))
             latest = next(a for a in publisher.read()[0]["apps"] if a["id"]==old["id"])
-            count = release_download_total(old["repository"],config)
+            count = release_download_total(old["repository"],config,(suffix,))
             if count != latest.get("downloadCount",-1):
                 publisher.change(entry=dict(latest, downloadCount=count))
         root = publisher.change()
