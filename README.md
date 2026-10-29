@@ -1,5 +1,7 @@
 # Kostenlose App-Verwaltung
 
+Ab 0.1.10 gibt es keine globale WLAN-Sperre mehr. Anmeldung, Verwaltung, App-Liste, manuelle und automatische Downloads funktionieren über beide Verbindungsarten. Updateprüfungen beim Öffnen laufen ohne kleine Statusmeldung. Bei Downloads ab 100 MB über eine Verbindung mit Datenbegrenzung erscheint „WLAN empfohlen“: „Jetzt herunterladen“ startet über die aktuelle Verbindung, „Später“ verschiebt den Download. Alte WLAN-Aufträge werden auf die neue Regel umgestellt.
+
 Ab Version 0.1.9 kann die Verwaltung auch bei eingeschalteter WLAN-Beschränkung über mobile Daten arbeiten. Diese Einstellung betrifft ausschließlich automatische APK-Downloads. Nach Betätigen des Download-Schalters bitte warten, bis „eingeschaltet und bestätigt“ beziehungsweise „ausgeschaltet und bestätigt“ erscheint. Während des Speicherns bleiben weitere Änderungen gesperrt. Falls nur das Nachladen scheitert, „Gespeicherte Änderung laden“ wählen; der Auftrag wird damit nicht erneut ausgeführt.
 
 Ein unterstütztes App-Icon wird automatisch aus der geprüften APK übernommen. Du musst für Empires Collection kein zusätzliches Bild hochladen. Bereits vorhandene Platzhalter werden durch „Alle App-Versionen aktualisieren“ oder den nächsten automatischen GitHub-Prüflauf nachgetragen. Reine Vektor-Icons ohne enthaltenes Bitmap sind noch nicht unterstützt.
