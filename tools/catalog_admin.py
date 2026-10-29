@@ -15,6 +15,10 @@ from pathlib import Path
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography import x509
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
+try:
+    from tools.apk_icon import extract_icon, icon_path
+except ModuleNotFoundError:
+    from apk_icon import extract_icon, icon_path
 OWNER_ID = 64050987
 CATALOG_REPO = "hahawasistlos1/Jir3n-App-Hub"
 MAX_APK = 512 * 1024 * 1024
@@ -91,6 +95,7 @@ def inspect_release(repo, config):
     url = asset["browser_download_url"]
     require_asset_url(url)
     digest = hashlib.sha256()
+    icon = None
     with tempfile.TemporaryDirectory() as directory:
         apk = Path(directory) / "release.apk"
         req = urllib.request.Request(url, headers={"User-Agent": "Jir3nHub-OwnerAdmin"})
@@ -108,18 +113,44 @@ def inspect_release(repo, config):
             capture_output=True, text=True, check=True, timeout=120, encoding="utf-8", errors="replace").stdout
         signature = subprocess.run([config["apksigner"], "verify", "--verbose", "--print-certs-pem", str(apk)],
             capture_output=True, text=True, check=True, timeout=120).stdout
+        # Inspect the certificate before handling or publishing embedded images.
+        parse_apk_metadata(badging, signature)
+        icon = extract_icon(apk, badging)
     pkg, code, version, minimum, certificate = parse_apk_metadata(badging, signature)
     label = re.search(r"^application-label:'([^']+)'", badging, re.M)
     if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+", pkg):
         raise Denied("Ungültiger Paketname.", 400)
     return {"id": hashlib.sha256(pkg.encode()).hexdigest()[:24], "name": (label[1] if label else meta["name"])[:100],
         "subtitle": "", "description": str(meta.get("description") or "")[:12000], "category": "Tools",
-        "platform": "Android", "visibility": "public", "icon": "hub_icon", "packageName": pkg,
+        "platform": "Android", "visibility": "public", "icon": publish_icon(icon,config) if icon else "hub_icon", "packageName": pkg,
         "repository": repo, "channel": "stable", "version": version, "versionCode": int(code),
         "apkUrl": url, "bytes": total, "sha256": digest.hexdigest(), "certificateSha256": certificate,
         "minSdk": minimum, "published": release.get("published_at", ""), "status": "Veröffentlicht",
         "notes": str(release.get("body") or "")[:20000], "website": release["html_url"], "screenshots": [],
-        "downloadEnabled": False, "downloadCount": release_download_total(repo,config)}
+        "downloadEnabled": False, "downloadCount": release_download_total(repo,config), "iconChecked": True}
+
+
+def publish_icon(data, config):
+    destination = config["catalog_repo"]
+    if destination != CATALOG_REPO:
+        raise Denied("Icon-Ziel nicht freigegeben.")
+    meta = github("/repos/" + destination, config["publish_token"])
+    if meta.get("private") is not False or meta.get("owner",{}).get("id") != OWNER_ID:
+        raise Denied("Icon-Ziel muss das öffentliche Hub-Projekt sein.")
+    path = icon_path(data)
+    endpoint = "/repos/" + destination + "/contents/" + path
+    try:
+        current = github(endpoint,config["publish_token"])
+    except urllib.error.HTTPError as error:
+        if error.code != 404:
+            raise
+        github(endpoint,config["publish_token"],"PUT",{
+            "message":"Extract verified app launcher icon",
+            "content":base64.b64encode(data).decode()})
+    else:
+        if base64.b64decode(current["content"]) != data:
+            raise Denied("Gespeichertes Icon stimmt nicht.")
+    return "https://raw.githubusercontent.com/" + destination + "/refs/heads/TennoFarm/" + path
 
 
 def parse_apk_metadata(badging, signature):
@@ -186,7 +217,8 @@ class Publisher:
                     if entry["versionCode"] == old["versionCode"] and entry["sha256"] != old["sha256"]:
                         raise Denied("Gleiche Versionsnummer mit anderer APK abgewiesen.", 409)
                     entry["id"] = old["id"]
-                    entry["icon"] = old.get("icon", "hub_icon")
+                    if entry.get("icon", "hub_icon") == "hub_icon":
+                        entry["icon"] = old.get("icon", "hub_icon")
                     entry["subtitle"] = old.get("subtitle", entry.get("subtitle", ""))
                     entry["downloadEnabled"] = old.get("downloadEnabled",True)
                     apps = [a for a in apps if a["id"] != old["id"]]
@@ -296,9 +328,10 @@ def main():
             stage = "Öffentliche Updates prüfen"
             release = github("/repos/" + repository(old["repository"]) + "/releases/latest", config["publish_token"])
             assets = [a for a in release.get("assets", []) if a["name"].lower().endswith(".apk")]
-            if len(assets) == 1 and (assets[0]["browser_download_url"] != old["apkUrl"] or assets[0]["size"] != old["bytes"]):
+            if len(assets) == 1 and (assets[0]["browser_download_url"] != old["apkUrl"] or assets[0]["size"] != old["bytes"] or (old.get("icon")=="hub_icon" and not old.get("iconChecked"))):
                 entry = inspect_release(old["repository"],config)
                 entry["category"] = old["category"]
+                entry["iconChecked"] = True
                 if old.get("descriptionOverride"):
                     entry["description"] = old["description"]
                     entry["descriptionOverride"] = True

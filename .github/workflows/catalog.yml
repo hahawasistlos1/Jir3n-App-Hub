@@ -60,7 +60,9 @@ jobs:
           echo "AAPT=$tools/aapt" >> "$GITHUB_ENV"
           echo "APKSIGNER=$tools/apksigner" >> "$GITHUB_ENV"
       - name: Abhängigkeit installieren
-        run: python -m pip install 'cryptography>=44,<47'
+        run: python -m pip install 'cryptography>=44,<47' 'Pillow==12.3.0'
+      - name: Katalog und Icon-Import prüfen
+        run: python -m unittest tools.test_catalog_admin tools.test_apk_icon
       - name: Eigentümer prüfen und Katalog veröffentlichen
         env:
           GITHUB_TOKEN: ${{ github.token }}
