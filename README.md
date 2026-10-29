@@ -1,5 +1,9 @@
 # Kostenlose App-Verwaltung
 
+Ab Version 0.1.9 kann die Verwaltung auch bei eingeschalteter WLAN-Beschränkung über mobile Daten arbeiten. Diese Einstellung betrifft ausschließlich automatische APK-Downloads. Nach Betätigen des Download-Schalters bitte warten, bis „eingeschaltet und bestätigt“ beziehungsweise „ausgeschaltet und bestätigt“ erscheint. Während des Speicherns bleiben weitere Änderungen gesperrt. Falls nur das Nachladen scheitert, „Gespeicherte Änderung laden“ wählen; der Auftrag wird damit nicht erneut ausgeführt.
+
+Ein unterstütztes App-Icon wird automatisch aus der geprüften APK übernommen. Du musst für Empires Collection kein zusätzliches Bild hochladen. Bereits vorhandene Platzhalter werden durch „Alle App-Versionen aktualisieren“ oder den nächsten automatischen GitHub-Prüflauf nachgetragen. Reine Vektor-Icons ohne enthaltenes Bitmap sind noch nicht unterstützt.
+
 Ab Version 0.1.8 steht der Launcher selbst nicht mehr in den App-Listen. Ein freigegebenes Launcher-Update erscheint oben als „Aktualisieren“ neben „Jir3n App Hub“. Ohne neuere Version bleibt dieser Button unsichtbar. Die automatische Updateprüfung bleibt erhalten.
 
 ## Neue Bedienung ab 0.1.6
